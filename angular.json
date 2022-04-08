@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "projects": {
+    "modal": "libs/modal",
+    "playground": "apps/playground",
+    "playground-e2e": "apps/playground-e2e"
+  }
+}

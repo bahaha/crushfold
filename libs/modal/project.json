@@ -1,0 +1,26 @@
+{
+  "projectType": "library",
+  "root": "libs/modal",
+  "sourceRoot": "libs/modal/src",
+  "prefix": "ng-playground",
+  "targets": {
+    "test": {
+      "executor": "@nrwl/jest:jest",
+      "outputs": ["coverage/libs/modal"],
+      "options": {
+        "jestConfig": "libs/modal/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nrwl/linter:eslint",
+      "options": {
+        "lintFilePatterns": [
+          "libs/modal/src/**/*.ts",
+          "libs/modal/src/**/*.html"
+        ]
+      }
+    }
+  },
+  "tags": []
+}
