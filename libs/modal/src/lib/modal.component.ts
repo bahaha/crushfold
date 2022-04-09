@@ -8,7 +8,7 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
-import { fromEvent, Subject } from 'rxjs';
+import { fromEvent, merge, Observable, Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
 import { ModalConfig } from './config';
 import { ModalRef } from './modal-ref';
@@ -43,7 +43,16 @@ export class ModalComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.listenOnBackdropClick();
+    const backdropClick$ = this.listenOnBackdropClick();
+
+    const onEscape$ = fromEvent<KeyboardEvent>(
+      this.document.body,
+      'keyup'
+    ).pipe(filter(({ key }) => key === 'Escape'));
+
+    if (this.config.enableClose) {
+      this.closeModalWhile(backdropClick$, onEscape$);
+    }
   }
 
   listenOnBackdropClick() {
@@ -51,14 +60,25 @@ export class ModalComponent implements OnInit, OnDestroy {
       ? this.backdrop.nativeElement
       : this.document.body;
 
-    fromEvent<MouseEvent>(backdrop, 'click', { capture: true })
-      .pipe(
-        filter(
-          ({ target }) => !this.modal.nativeElement.contains(target as Element)
-        ),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(this.modalRef.backdropClick$);
+    const backdropClick$ = fromEvent<MouseEvent>(backdrop, 'click', {
+      capture: true,
+    }).pipe(
+      filter(
+        ({ target }) => !this.modal.nativeElement.contains(target as Element)
+      ),
+      takeUntil(this.destroy$)
+    );
+
+    backdropClick$.subscribe(this.modalRef.backdropClick$);
+    return backdropClick$;
+  }
+
+  closeModalWhile(...observables: Observable<any>[]) {
+    merge(...observables)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.modalRef.close(),
+      });
   }
 
   ngOnDestroy(): void {

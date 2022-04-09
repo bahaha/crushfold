@@ -3,6 +3,7 @@ import { ModalConfig } from './config';
 
 export const defaultModalConfigFactory = (): ModalConfig => ({
   backdrop: true,
+  enableClose: true,
 });
 
 export const MODAL_CONFIG = new InjectionToken<ModalConfig>(

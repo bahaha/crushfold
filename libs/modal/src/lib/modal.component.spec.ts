@@ -14,7 +14,7 @@ describe('ModalComponent', () => {
     providers: [
       {
         provide: ModalRef,
-        useFactory: () => ({ backdropClick$: new Subject() }),
+        useFactory: () => ({ close: jest.fn(), backdropClick$: new Subject() }),
       },
       {
         provide: MODAL_CONFIG,
@@ -78,6 +78,47 @@ describe('ModalComponent', () => {
 
       spectator.dispatchMouseEvent(document.body, 'click');
       expect(hasBackdropClicked).toBe(true);
+    });
+  });
+
+  describe('when enableClose (default), should call #close', () => {
+    beforeEach(() => (spectator = createComponent()));
+
+    it('on keyboard ESCAPE', () => {
+      const { close } = spectator.inject(ModalRef);
+      spectator.dispatchKeyboardEvent(document.body, 'keyup', 'Enter');
+      expect(close).not.toBeCalled();
+
+      spectator.dispatchKeyboardEvent(document.body, 'keyup', 'Escape');
+      expect(close).toBeCalled();
+    });
+
+    it('on click backdrop', () => {
+      const { close } = spectator.inject(ModalRef);
+
+      spectator.dispatchMouseEvent('.cf-modal--content', 'click');
+      expect(close).not.toBeCalled();
+
+      spectator.dispatchMouseEvent('.cf-modal--backdrop', 'click');
+      expect(close).toBeCalled();
+    });
+  });
+
+  describe('when enableClose is disabled, should not call #close', () => {
+    beforeEach(
+      () => (spectator = createComponent(withConfig({ enableClose: false })))
+    );
+
+    it('on keyboard ESCAPE', () => {
+      const { close } = spectator.inject(ModalRef);
+      spectator.dispatchKeyboardEvent(document.body, 'keyup', 'Escape');
+      expect(close).not.toBeCalled();
+    });
+
+    it('on click backdrop', () => {
+      const { close } = spectator.inject(ModalRef);
+      spectator.dispatchMouseEvent('.cf-modal--backdrop', 'click');
+      expect(close).not.toBeCalled();
     });
   });
 });
