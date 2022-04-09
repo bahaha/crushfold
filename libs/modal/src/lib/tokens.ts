@@ -1,6 +1,8 @@
 import { InjectionToken } from '@angular/core';
 import { ModalConfig } from './config';
 
+export const MODAL_CONTENT_NODES = new InjectionToken('nodes of modal content');
+
 export const defaultModalConfigFactory = (): ModalConfig => ({
   backdrop: true,
   enableClose: true,

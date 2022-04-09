@@ -13,6 +13,7 @@
     "lib": ["es2017", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
+    "strictNullChecks": false,
     "baseUrl": ".",
     "paths": {
       "@ng-playground/modal": ["libs/modal/src/index.ts"]

@@ -1,10 +1,14 @@
-import { Spectator } from '@ngneat/spectator';
+import { byText, Spectator } from '@ngneat/spectator';
 import { createComponentFactory } from '@ngneat/spectator/jest';
 import { Subject } from 'rxjs';
 import { ModalConfig } from './config';
 import { ModalRef } from './modal-ref';
 import { ModalComponent } from './modal.component';
-import { defaultModalConfigFactory, MODAL_CONFIG } from './tokens';
+import {
+  defaultModalConfigFactory,
+  MODAL_CONFIG,
+  MODAL_CONTENT_NODES,
+} from './tokens';
 
 describe('ModalComponent', () => {
   let spectator: Spectator<ModalComponent>;
@@ -20,7 +24,20 @@ describe('ModalComponent', () => {
         provide: MODAL_CONFIG,
         useFactory: defaultModalConfigFactory,
       },
+      {
+        provide: MODAL_CONTENT_NODES,
+        useValue: [],
+      },
     ],
+  });
+
+  afterEach(() => {
+    const containerEls = document.querySelectorAll('.cf-modal--content');
+    const backdropEls = document.querySelectorAll('.cf-modal--backdrop');
+
+    [...Array.from(containerEls), ...Array.from(backdropEls)]
+      .filter(Boolean)
+      .forEach((el) => el.remove());
   });
 
   function withConfig(config: Partial<ModalConfig> = {}) {
@@ -37,6 +54,34 @@ describe('ModalComponent', () => {
   it('should create', () => {
     spectator = createComponent();
     expect(spectator.component).toBeTruthy();
+  });
+
+  it('should set className to its class', () => {
+    spectator = createComponent(
+      withConfig({ className: 'iam-class the-second-class  ' })
+    );
+    const host = spectator.query('.iam-class.the-second-class', { root: true });
+
+    expect(host).toBeTruthy();
+    expect(host).toBe(spectator.fixture.nativeElement);
+  });
+
+  it('should place nodes into modal content', () => {
+    spectator = createComponent({
+      providers: [
+        {
+          provide: MODAL_CONTENT_NODES,
+          useValue: [
+            document.createTextNode('Hi, there. '),
+            document.createTextNode('Modal content here.'),
+          ],
+        },
+      ],
+    });
+
+    expect(
+      spectator.query(byText('Hi, there. Modal content here.'))
+    ).toBeTruthy();
   });
 
   describe('when backdrop is enabled (default)', () => {

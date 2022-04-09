@@ -6,13 +6,14 @@ import {
   Inject,
   OnDestroy,
   OnInit,
+  Renderer2,
   ViewChild,
 } from '@angular/core';
 import { fromEvent, merge, Observable, Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
 import { ModalConfig } from './config';
 import { ModalRef } from './modal-ref';
-import { MODAL_CONFIG } from './tokens';
+import { MODAL_CONFIG, MODAL_CONTENT_NODES } from './tokens';
 
 @Component({
   selector: 'ng-playground-modal',
@@ -39,20 +40,32 @@ export class ModalComponent implements OnInit, OnDestroy {
   constructor(
     @Inject(DOCUMENT) private document: Document,
     @Inject(MODAL_CONFIG) public config: ModalConfig,
-    public modalRef: ModalRef
-  ) {}
+    @Inject(MODAL_CONTENT_NODES) private contentNodes: Element[],
+    { nativeElement: host }: ElementRef<HTMLElement>,
+    public modalRef: ModalRef,
+    private render: Renderer2
+  ) {
+    if (config.className) {
+      config.className
+        .split(/\s/g)
+        .filter(Boolean)
+        .forEach((clazz) => this.render.addClass(host, clazz));
+    }
+  }
 
   ngOnInit(): void {
     const backdropClick$ = this.listenOnBackdropClick();
-
-    const onEscape$ = fromEvent<KeyboardEvent>(
-      this.document.body,
-      'keyup'
-    ).pipe(filter(({ key }) => key === 'Escape'));
-
     if (this.config.enableClose) {
+      const onEscape$ = fromEvent<KeyboardEvent>(
+        this.document.body,
+        'keyup'
+      ).pipe(filter(({ key }) => key === 'Escape'));
       this.closeModalWhile(backdropClick$, onEscape$);
     }
+
+    this.contentNodes.forEach((node) =>
+      this.render.appendChild(this.modal.nativeElement, node)
+    );
   }
 
   listenOnBackdropClick() {
@@ -84,5 +97,8 @@ export class ModalComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.modalRef = null;
+    this.contentNodes = null;
   }
 }
