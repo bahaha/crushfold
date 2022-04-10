@@ -22,7 +22,7 @@ describe('ModalComponent', () => {
       },
       {
         provide: MODAL_CONFIG,
-        useFactory: defaultModalConfigFactory,
+        useFactory: () => defaultModalConfigFactory(document.body),
       },
       {
         provide: MODAL_CONTENT_NODES,
@@ -45,7 +45,7 @@ describe('ModalComponent', () => {
       providers: [
         {
           provide: MODAL_CONFIG,
-          useValue: { ...defaultModalConfigFactory(), ...config },
+          useValue: { ...defaultModalConfigFactory(document.body), ...config },
         },
       ],
     };
