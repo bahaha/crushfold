@@ -2,8 +2,8 @@
 
 ## Configuration
 
-- [ ] Global modal configuration
-- [ ] Instance modal configuration
+- [x] Global modal configuration
+- [x] Instance modal configuration
 
 ## Features
 
@@ -17,5 +17,5 @@
 
 ## How to use
 
-- [ ] With #open
+- [x] With #open
 - [ ] With view template usage

@@ -56,6 +56,10 @@ export class ModalService {
     @Inject(GLOBAL_MODAL_CONFIG) private globalConfig: GlobalModalConfig
   ) {}
 
+  closeAll() {
+    this.modals.forEach((modal) => modal.close());
+  }
+
   open<
     TData extends ExtractModalRefData<ComputedModalRefType<T>>,
     TResult extends ExtractModalRefResult<ComputedModalRefType<T>>,

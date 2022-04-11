@@ -47,8 +47,8 @@ export class ModalRef<
     const closeGuards = canCloseGuards
       .map((guard) => guard(result))
       .map((canClose) =>
-        typeof canClose === 'boolean'
-          ? of(canClose)
+        typeof canClose === 'boolean' || isNil(canClose)
+          ? of(!!canClose)
           : from(canClose).pipe(take(1))
       );
 

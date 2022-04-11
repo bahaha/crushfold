@@ -46,7 +46,7 @@ class MockComponentFactory extends ComponentFactoryResolver {
   };
 
   factory = {
-    create: jest.fn().mockReturnValueOnce(this.modalComp),
+    create: jest.fn().mockReturnValue(this.modalComp),
   };
 
   resolveComponentFactory = jest.fn().mockReturnValue(this.factory);
@@ -411,87 +411,112 @@ describe('ModalService', () => {
   });
 
   describe('close with canClose guard', () => {
-    let hasClosed: boolean;
     const withGuard = (canCloseGuard?: GlobalModalConfig['canClose']) => {
-      hasClosed = false;
-      const ref = service.open(new DummyTemplateRef(), {
-        canClose: canCloseGuard,
-      });
-      ref.afterClosed$.subscribe({ next: () => (hasClosed = true) });
-      return ref;
+      let hasClosed: boolean;
+      const opneModalWithGuard = (): [ModalRef, () => boolean] => {
+        hasClosed = false;
+        const ref = service.open(new DummyTemplateRef(), {
+          canClose: canCloseGuard,
+        });
+        ref.afterClosed$.subscribe({ next: () => (hasClosed = true) });
+        return [ref, () => hasClosed];
+      };
+      return opneModalWithGuard();
     };
 
     it('should close if no canClose guard exists', () => {
-      const ref = withGuard();
+      const [ref, isClosed] = withGuard();
       ref.close();
-      expect(hasClosed).toBe(true);
+      expect(isClosed()).toBe(true);
     });
 
-    describe('with canClose guard', () => {
-      it('using sync function', () => {
-        const ref = withGuard((number) => number > 10);
-        ref.close(10);
-        expect(hasClosed).toBe(false);
+    it('using sync function', () => {
+      const [ref, isClosed] = withGuard((number) => number > 10);
+      ref.close(10);
+      expect(isClosed()).toBe(false);
 
-        ref.close(15);
-        expect(hasClosed).toBe(true);
+      ref.close(15);
+      expect(isClosed()).toBe(true);
+    });
+
+    it('using promise', fakeAsync(() => {
+      const [ref, isClosed] = withGuard((number) =>
+        Promise.resolve(number > 10)
+      );
+      ref.close(10);
+      tick(1000);
+      expect(isClosed()).toBe(false);
+      ref.close(11);
+      tick(1000);
+      expect(isClosed()).toBe(true);
+    }));
+
+    it('using observable', fakeAsync(() => {
+      const [ref, isClosed] = withGuard((number) => of(number > 10));
+      ref.close(10);
+      tick(1000);
+      expect(isClosed()).toBe(false);
+      ref.close(11);
+      tick(1000);
+      expect(isClosed()).toBe(true);
+    }));
+
+    it('should reject close when one guard return false', fakeAsync(() => {
+      const [ref, isClosed] = withGuard([
+        (num) => num > 10,
+        (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
+      ]);
+
+      ref.close(11);
+      tick(200);
+      expect(isClosed()).toBe(false);
+    }));
+
+    it('should close until all canClose guard accpet', fakeAsync(() => {
+      const [ref, isClosed] = withGuard([
+        (num) => num > 10,
+        (num) =>
+          new Promise<boolean>((resolve) =>
+            setTimeout(() => resolve(num > 20), 300)
+          ),
+        (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
+      ]);
+
+      ref.close(2);
+      tick(600);
+      expect(isClosed()).toBe(false);
+
+      ref.close(12);
+      tick(600);
+      expect(isClosed()).toBe(false);
+
+      ref.close(66);
+      tick(250);
+      expect(isClosed()).toBe(false);
+      tick(100);
+      expect(isClosed()).toBe(true);
+    }));
+
+    describe('using closeAll', () => {
+      it('should close all modals', () => {
+        withGuard();
+        withGuard();
+
+        expect(service.modals.length).toBe(2);
+        service.closeAll();
+        expect(service.modals).toEqual([]);
       });
 
-      it('using promise', fakeAsync(() => {
-        const ref = withGuard((number) => Promise.resolve(number > 10));
-        ref.close(10);
-        tick(1000);
-        expect(hasClosed).toBe(false);
-        ref.close(11);
-        tick(1000);
-        expect(hasClosed).toBe(true);
-      }));
+      it('should close all modals which accept by canClose guard', () => {
+        const [info, isInfoClosed] = withGuard();
+        const [formModal, isFormModalClosed] = withGuard(
+          (form) => (form as any)?.valid
+        );
 
-      it('using observable', fakeAsync(() => {
-        const ref = withGuard((number) => of(number > 10));
-        ref.close(10);
-        tick(1000);
-        expect(hasClosed).toBe(false);
-        ref.close(11);
-        tick(1000);
-        expect(hasClosed).toBe(true);
-      }));
-
-      it('should reject close when one guard return false', fakeAsync(() => {
-        const ref = withGuard([
-          (num) => num > 10,
-          (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
-        ]);
-
-        ref.close(11);
-        tick(200);
-        expect(hasClosed).toBe(false);
-      }));
-
-      it('should close until all canClose guard accpet', fakeAsync(() => {
-        const ref = withGuard([
-          (num) => num > 10,
-          (num) =>
-            new Promise<boolean>((resolve) =>
-              setTimeout(() => resolve(num > 20), 300)
-            ),
-          (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
-        ]);
-
-        ref.close(2);
-        tick(600);
-        expect(hasClosed).toBe(false);
-
-        ref.close(12);
-        tick(600);
-        expect(hasClosed).toBe(false);
-
-        ref.close(66);
-        tick(250);
-        expect(hasClosed).toBe(false);
-        tick(100);
-        expect(hasClosed).toBe(true);
-      }));
+        service.closeAll();
+        expect(isInfoClosed()).toBe(true);
+        expect(isFormModalClosed()).toBe(false);
+      });
     });
   });
 });
