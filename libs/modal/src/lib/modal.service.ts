@@ -163,6 +163,7 @@ export class ModalService {
 
     modalRef.ref = ref;
     modalRef.onClose = onModalClose;
+    modalRef.canCloseGuards = config.canClose;
     container.appendChild(modal.location.nativeElement);
     this.appRef.attachView(modal.hostView);
 

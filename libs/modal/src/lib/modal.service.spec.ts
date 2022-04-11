@@ -7,7 +7,9 @@ import {
   Injector,
   TemplateRef,
 } from '@angular/core';
+import { fakeAsync, tick } from '@angular/core/testing';
 import { createServiceFactory, SpectatorService } from '@ngneat/spectator/jest';
+import { mapTo, of, timer } from 'rxjs';
 import { GlobalModalConfig } from './config';
 import { ModalRef } from './modal-ref';
 import { ModalComponent } from './modal.component';
@@ -405,6 +407,91 @@ describe('ModalService', () => {
       expect(
         (spectator.inject(GLOBAL_MODAL_CONFIG) as any).onClose
       ).toBeCalledTimes(1);
+    });
+  });
+
+  describe('close with canClose guard', () => {
+    let hasClosed: boolean;
+    const withGuard = (canCloseGuard?: GlobalModalConfig['canClose']) => {
+      hasClosed = false;
+      const ref = service.open(new DummyTemplateRef(), {
+        canClose: canCloseGuard,
+      });
+      ref.afterClosed$.subscribe({ next: () => (hasClosed = true) });
+      return ref;
+    };
+
+    it('should close if no canClose guard exists', () => {
+      const ref = withGuard();
+      ref.close();
+      expect(hasClosed).toBe(true);
+    });
+
+    describe('with canClose guard', () => {
+      it('using sync function', () => {
+        const ref = withGuard((number) => number > 10);
+        ref.close(10);
+        expect(hasClosed).toBe(false);
+
+        ref.close(15);
+        expect(hasClosed).toBe(true);
+      });
+
+      it('using promise', fakeAsync(() => {
+        const ref = withGuard((number) => Promise.resolve(number > 10));
+        ref.close(10);
+        tick(1000);
+        expect(hasClosed).toBe(false);
+        ref.close(11);
+        tick(1000);
+        expect(hasClosed).toBe(true);
+      }));
+
+      it('using observable', fakeAsync(() => {
+        const ref = withGuard((number) => of(number > 10));
+        ref.close(10);
+        tick(1000);
+        expect(hasClosed).toBe(false);
+        ref.close(11);
+        tick(1000);
+        expect(hasClosed).toBe(true);
+      }));
+
+      it('should reject close when one guard return false', fakeAsync(() => {
+        const ref = withGuard([
+          (num) => num > 10,
+          (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
+        ]);
+
+        ref.close(11);
+        tick(200);
+        expect(hasClosed).toBe(false);
+      }));
+
+      it('should close until all canClose guard accpet', fakeAsync(() => {
+        const ref = withGuard([
+          (num) => num > 10,
+          (num) =>
+            new Promise<boolean>((resolve) =>
+              setTimeout(() => resolve(num > 20), 300)
+            ),
+          (num) => timer(200).pipe(mapTo((num as number) % 2 === 0)),
+        ]);
+
+        ref.close(2);
+        tick(600);
+        expect(hasClosed).toBe(false);
+
+        ref.close(12);
+        tick(600);
+        expect(hasClosed).toBe(false);
+
+        ref.close(66);
+        tick(250);
+        expect(hasClosed).toBe(false);
+        tick(100);
+        expect(hasClosed).toBe(true);
+      }));
     });
   });
 });
