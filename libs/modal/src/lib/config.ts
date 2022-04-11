@@ -6,6 +6,7 @@ export interface GlobalModalConfig {
   enableClose: boolean;
   className?: string;
   container: HTMLElement | ElementRef<HTMLElement>;
+  onClose?: () => void | undefined;
 }
 
 export interface ModalConfig<Data = any> extends GlobalModalConfig {

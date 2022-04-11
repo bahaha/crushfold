@@ -8,6 +8,7 @@ import {
   TemplateRef,
 } from '@angular/core';
 import { createServiceFactory, SpectatorService } from '@ngneat/spectator/jest';
+import { GlobalModalConfig } from './config';
 import { ModalRef } from './modal-ref';
 import { ModalComponent } from './modal.component';
 import { ModalService } from './modal.service';
@@ -69,13 +70,17 @@ describe('ModalService', () => {
     service: ModalService,
     mocks: [ApplicationRef],
     providers: [
-      { provide: GLOBAL_MODAL_CONFIG, useValue: {} },
+      {
+        provide: GLOBAL_MODAL_CONFIG,
+        useValue: {},
+      },
       { provide: ComponentFactoryResolver, useClass: MockComponentFactory },
       {
         provide: DOCUMENT,
         useFactory: () => ({
           body: {
             appendChild: jest.fn(),
+            removeChild: jest.fn(),
           },
         }),
       },
@@ -88,6 +93,11 @@ describe('ModalService', () => {
     mockCompFactory = spectator.inject<MockComponentFactory>(
       ComponentFactoryResolver as any
     );
+    const globalConfig = spectator.inject(
+      GLOBAL_MODAL_CONFIG
+    ) as Partial<GlobalModalConfig>;
+
+    globalConfig.onClose = jest.fn();
   });
 
   it('should be created', () => {
@@ -321,6 +331,80 @@ describe('ModalService', () => {
         $implicit: modalRef,
         config: expect.objectContaining({ backdrop: false }),
       });
+    });
+  });
+
+  describe('on close', () => {
+    let content: DummyTemplateRef;
+    let ref: ModalRef;
+
+    beforeEach(() => {
+      content = new DummyTemplateRef();
+      ref = service.open(content);
+    });
+
+    it('should remove modal from modals', () => {
+      ref.close();
+      expect(service.modals).toEqual([]);
+    });
+
+    it('shoule remove modal from container', () => {
+      ref.close();
+      const container = spectator.inject(DOCUMENT).body;
+      expect(container.removeChild).toBeCalledTimes(1);
+      expect(container.removeChild).toBeCalledWith(
+        mockCompFactory.modalComp.location.nativeElement
+      );
+    });
+
+    it('should detach view from ApplicationRef and destroy it', () => {
+      ref.close();
+
+      const appRef = spectator.inject(ApplicationRef);
+      expect(appRef.detachView).toBeCalledTimes(2);
+      const detachModal = appRef.detachView.mock.calls[0][0];
+      expect(detachModal).toEqual(mockCompFactory.modalComp.hostView);
+      expect(mockCompFactory.modalComp.destroy).toBeCalledTimes(1);
+      const detachContent = appRef.detachView.mock.calls[1][0];
+      expect(detachContent).toEqual(content.view);
+      expect(content.view.destroy).toBeCalledTimes(1);
+    });
+
+    it('should emit afterClosed$ and complete it', () => {
+      let hasNext = false;
+      let hasCompleted = false;
+      ref.afterClosed$.subscribe({
+        next: () => (hasNext = true),
+        complete: () => (hasCompleted = true),
+      });
+
+      ref.close();
+      expect(hasNext).toBe(true);
+      expect(hasCompleted).toBe(true);
+    });
+
+    it('should send result to afterClosed$', () => {
+      let result: any;
+      ref.afterClosed$.subscribe((r) => (result = r));
+      ref.close('foo');
+      expect(result).toBe('foo');
+    });
+
+    it('should complete backdropClick$', () => {
+      let hasBackdropClickComplete = false;
+      ref.backdropClick$.subscribe({
+        complete: () => (hasBackdropClickComplete = true),
+      });
+      ref.close();
+
+      expect(hasBackdropClickComplete).toBe(true);
+    });
+
+    it('should invoke onClose from global config', () => {
+      ref.close();
+      expect(
+        (spectator.inject(GLOBAL_MODAL_CONFIG) as any).onClose
+      ).toBeCalledTimes(1);
     });
   });
 });

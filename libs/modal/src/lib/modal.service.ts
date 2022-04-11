@@ -68,9 +68,14 @@ export class ModalService {
   >(compOrTemplate: T, config: Partial<ModalConfig<TData>> = {}): TModalRef {
     const configWithDefaults = this.mergeConfig(config);
 
+    const hooks = {
+      backdropClick$: new Subject<MouseEvent>(),
+      afterClosed$: new Subject(),
+    };
     const modalRef = new ModalRef({
+      id: configWithDefaults.id,
       data: configWithDefaults.data,
-      backdropClick$: new Subject(),
+      ...hooks,
     });
     const openParams = {
       config: configWithDefaults,
@@ -141,7 +146,23 @@ export class ModalService {
         ? config.container.nativeElement
         : config.container;
 
+    const onModalClose = (result?: unknown) => {
+      this.globalConfig.onClose?.();
+      this.modals = this.modals.filter(({ id }) => id !== modalRef.id);
+      container.removeChild(modal.location.nativeElement);
+      this.appRef.detachView(modal.hostView);
+      this.appRef.detachView(view);
+
+      modal.destroy();
+      view.destroy();
+
+      modalRef.afterClosed$.next(result);
+      modalRef.afterClosed$.complete();
+      modalRef.backdropClick$.complete();
+    };
+
     modalRef.ref = ref;
+    modalRef.onClose = onModalClose;
     container.appendChild(modal.location.nativeElement);
     this.appRef.attachView(modal.hostView);
 
