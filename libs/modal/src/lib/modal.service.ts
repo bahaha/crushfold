@@ -19,6 +19,11 @@ import {
   MODAL_CONFIG,
   MODAL_CONTENT_NODES,
 } from './tokens';
+import {
+  ComputedModalRefType,
+  ExtractModalRefData,
+  ExtractModalRefResult,
+} from './types';
 
 interface OpenParams {
   config: ModalConfig;
@@ -30,6 +35,7 @@ interface AttachOptions {
   ref: ComponentRef<any> | TemplateRef<any>;
   view: EmbeddedViewRef<any>;
   config: ModalConfig;
+  attachToApp?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -38,29 +44,64 @@ export class ModalService {
 
   constructor(
     private appRef: ApplicationRef,
+    /* FIXME: 
+        https://github.com/angular/angular/issues/45263
+        Angular 13, ComponentFactory is deprecated, 
+        and without ComponentFactory, 
+        the component could be generated ONLY with view container reference
+    */
     private componentFactoryResolver: ComponentFactoryResolver,
     private injector: Injector,
     @Inject(MODAL_CONFIG) private defaultConfig: ModalConfig,
     @Inject(GLOBAL_MODAL_CONFIG) private globalConfig: GlobalModalConfig
   ) {}
 
-  /* FIXME: 
-      https://github.com/angular/angular/issues/45263
-      Angular 13, ComponentFactory is deprecated, 
-      and without ComponentFactory, 
-      the component could be generated ONLY with view container reference
-  */
-  open(compOrTemplate: any, config: Partial<ModalConfig> = {}) {
+  open<
+    TData extends ExtractModalRefData<ComputedModalRefType<T>>,
+    TResult extends ExtractModalRefResult<ComputedModalRefType<T>>,
+    T extends Type<any> | TemplateRef<any> = Type<any> | TemplateRef<any>,
+    TModalRef extends ModalRef = ModalRef<
+      TData,
+      TResult,
+      ComputedModalRefType<T>
+    >
+  >(compOrTemplate: T, config: Partial<ModalConfig<TData>> = {}): TModalRef {
     const configWithDefaults = this.mergeConfig(config);
 
-    const modalRef = this.openComponent(compOrTemplate, {
-      config: configWithDefaults,
-      modalRef: new ModalRef({ backdropClick$: new Subject() }),
+    const modalRef = new ModalRef({
+      data: configWithDefaults.data,
+      backdropClick$: new Subject(),
     });
+    const openParams = {
+      config: configWithDefaults,
+      modalRef,
+    };
 
     this.modals.push(modalRef);
 
-    return modalRef;
+    return compOrTemplate instanceof TemplateRef
+      ? (this.openTemplate(compOrTemplate, openParams) as TModalRef)
+      : typeof compOrTemplate === 'function'
+      ? (this.openComponent(compOrTemplate, openParams) as TModalRef)
+      : this.throwMustBeTemplateOrComponent(compOrTemplate);
+  }
+
+  private openTemplate(
+    template: TemplateRef<any>,
+    { config, modalRef }: OpenParams
+  ) {
+    const context = { $implicit: modalRef, config };
+    const view =
+      config.vcr?.createEmbeddedView(template, context) ||
+      template.createEmbeddedView(context);
+
+    return this.attach({
+      modalRef,
+      config,
+      view,
+      ref: template,
+      attachToApp: !config.vcr,
+    });
   }
 
   private openComponent(
@@ -87,17 +128,26 @@ export class ModalService {
     });
   }
 
-  private attach({ modalRef, config, view, ref }: AttachOptions) {
+  private attach({
+    modalRef,
+    config,
+    view,
+    ref,
+    attachToApp = true,
+  }: AttachOptions): ModalRef {
     const modal = this.createModal(config, modalRef, view);
     const container =
       config.container instanceof ElementRef
         ? config.container.nativeElement
         : config.container;
 
+    modalRef.ref = ref;
     container.appendChild(modal.location.nativeElement);
     this.appRef.attachView(modal.hostView);
 
-    this.appRef.attachView(view);
+    if (attachToApp) {
+      this.appRef.attachView(view);
+    }
     return modalRef;
   }
 
@@ -127,6 +177,12 @@ export class ModalService {
       ...this.globalConfig,
       ...config,
     };
+  }
+
+  private throwMustBeTemplateOrComponent(value: unknown): never {
+    throw new TypeError(
+      `Modal content must be a component or a template, but got [${value}] instead.`
+    );
   }
 
   private nanoid() {

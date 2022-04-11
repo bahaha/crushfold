@@ -1,7 +1,8 @@
 import { ComponentRef, TemplateRef } from '@angular/core';
 import { Subject } from 'rxjs';
 
-export interface ModalRefProps {
+export interface ModalRefProps<Data = any> {
+  data: Data;
   backdropClick$: Subject<MouseEvent>;
 }
 
@@ -17,6 +18,7 @@ export class ModalRef<
   public data: Data;
 
   constructor(props: ModalRefProps) {
+    this.data = props.data ?? {};
     this.backdropClick$ = props.backdropClick$;
   }
 
