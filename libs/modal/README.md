@@ -1,7 +1,21 @@
-# modal
+# Modal
 
-This library was generated with [Nx](https://nx.dev).
+## Configuration
 
-## Running unit tests
+- [x] Global modal configuration
+- [x] Instance modal configuration
 
-Run `nx test modal` to execute the unit tests.
+## Features
+
+- [ ] Resize
+- [ ] Draggable
+- [x] Backdrop, close
+- [ ] Built in modals like confirm, notify, ... etc. modal
+- [ ] Form support with form submit, form loading status, ...etc.
+- [ ] Asynchoronously close
+- [ ] Customize modal content, footer
+
+## How to use
+
+- [x] With #open
+- [ ] With view template usage
